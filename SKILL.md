@@ -14,6 +14,43 @@ Interactive skill that produces zero-ambiguity SVG architecture diagrams for
 single-agent, multi-agent, and hierarchical agent systems. The diagram serves
 as Cursor context so generated code has no integration bugs.
 
+---
+
+## HARD CONSTRAINTS (read these FIRST, before anything else)
+
+### Constraint 1: SVG FILES ONLY — NEVER MODIFY CODE
+
+This skill produces **ONLY `.svg` files**. You MUST NOT:
+
+- Edit, create, or modify any `.py`, `.js`, `.ts`, or other source code file
+- Add retry logic, loop caps, or any feature to source code
+- "Fix" code to match the diagram — the diagram is the SPEC, code comes later
+
+If the diagram shows `MAX_ITERATIONS = 10` but `driver.py` has no loop cap,
+that is CORRECT — the diagram is the design, not documentation of existing code.
+
+**Violation check**: Before calling Write/StrReplace, verify the file path ends
+in `.svg`. If it does not, STOP.
+
+### Constraint 2: DIAGRAM = INTENDED ARCHITECTURE, NOT EXISTING CODE
+
+The SVG represents what the system SHOULD look like, not what `state.py` or
+any current file contains. Do NOT:
+
+- Read source files and then remove diagram elements that "don't exist in code yet"
+- Simplify the diagram to match a partial implementation
+- Replace typed models (like `ResearchResult`) with `str` because that's what the code has
+
+**The diagram drives the code, not the other way around.**
+
+### Constraint 3: NO THINKING LOOPS
+
+Do NOT output multiple "I'm now focusing on..." or "I'm now determining..."
+paragraphs. Read the skill, gather the information, compute coordinates, write
+the SVG. One planning paragraph maximum, then act.
+
+---
+
 ## Scope
 
 | System type | Example |
@@ -191,18 +228,103 @@ For agents beyond these roles, cycle through: indigo, pink, cyan, lime.
 - Model fields: `monospace`, 13px
 - Annotations: `system-ui`, 11-12px, weight 600, fill #dc2626 for warnings
 
-### Layout
+### Layout — EXACT FORMULAS (not suggestions)
 
-- Canvas width: **1400px** (not 1300 — prevents right-edge cramming)
-- Canvas height: calculated based on content (start at 800, add ~350 per section)
-- Vertical gap between flow nodes: **minimum 80px** (room for arrow + 2 label lines)
-- Horizontal gap between side-by-side boxes: **minimum 40px**
-- Section dividers: dashed line at full width, title 30px below line, content 35px below title
-- Section 2: **2 rows of 2 boxes** (never 4 across — text overflows at that density)
-- Model boxes: 360-520px wide, height = 36px header + 26px per field + 40px footer
-- Agent nodes: 280-300px wide, 80-130px tall
+**Canvas sizing formula** (calculate, do not guess):
+
+```
+CANVAS_WIDTH  = 1400  (constant — never change this)
+CENTER_X      = 700   (constant — all centered elements use this)
+
+SECTION_1_HEIGHT = 120 + (AGENT_COUNT × 160)   (flow section)
+SECTION_2_HEIGHT = 60 + 2 × (MAX_BOX_HEIGHT + 30)  (2×2 grid)
+SECTION_3_HEIGHT = 60 + STATE_BOX_HEIGHT + 40 + PARA_NOTE_HEIGHT + 60 + BASE_CLASS_HEIGHT + 80 + CHILD_CLASS_HEIGHT
+
+CANVAS_HEIGHT = SECTION_1_HEIGHT + 80 + SECTION_2_HEIGHT + 80 + SECTION_3_HEIGHT + 60
+```
+
+**Flow node vertical positioning** (Section 1):
+
+```
+USER_Y        = 120
+ORCH_Y        = USER_Y + USER_H + 80     (80px gap minimum)
+ROUTER_Y      = ORCH_Y + ORCH_H + 70
+SIDE_AGENTS_Y = ROUTER_CY - SIDE_H/2     (vertically centered on router)
+BOTTOM_AGENT_Y = ROUTER_Y + ROUTER_H + 80
+```
+
+**Arrow label Y formula** (prevents overlap with boxes):
+
+```
+LABEL_Y = (SOURCE_BOTTOM + TARGET_TOP) / 2
+```
+
+Never place a label at the same Y coordinate as text inside a box.
+Never place a label within 15px of a box edge.
+
+**Section 2 grid** (2 rows × 2 columns, ALWAYS):
+
+```
+ROW1_LEFT_X   = 60       ROW1_RIGHT_X  = CENTER_X + 40
+ROW1_Y        = section2_title_y + 40
+BOX_WIDTH     = (CANVAS_WIDTH - 60 - 60 - 40) / 2   (≈ 620px each)
+
+ROW2_Y        = ROW1_Y + ROW1_HEIGHT + 30
+```
+
+Never put 3 or 4 boxes in one row. Always 2×2.
+
+**Section 3 child classes** — evenly distributed:
+
+```
+TOTAL_CHILDREN_WIDTH = sum(child_widths) + (N-1) × 60
+START_X = CENTER_X - TOTAL_CHILDREN_WIDTH / 2
+```
+
+- Agent nodes: 280-320px wide, 80-130px tall
+- Model boxes: width from formula above, height = 36px header + 26px × field_count + 40px footer
 - Multi-line text: **26px line-height** for 14px font, **22px** for 13px font
-- See [references/svg-template-patterns.md](references/svg-template-patterns.md) for full spacing rules
+- Full spacing reference: [references/svg-template-patterns.md](references/svg-template-patterns.md)
+
+---
+
+## Phase C: SVG Construction Process (follow this order exactly)
+
+Do NOT generate the entire SVG in one shot. Build section by section.
+
+### Step 1: Compute layout coordinates on paper
+
+Before writing ANY SVG XML, calculate ALL Y positions using the formulas in
+the Layout section above. Write them down as a coordinate table:
+
+```
+USER_Y = 120, ORCH_Y = 280, ROUTER_CY = 460, ...
+SECTION2_Y = 920, ROW1_Y = 990, ROW2_Y = ...
+SECTION3_Y = ..., BASE_Y = ..., CHILDREN_Y = ...
+CANVAS_HEIGHT = sum of everything
+```
+
+### Step 2: Write the SVG header + defs
+
+viewBox must use your calculated CANVAS_WIDTH and CANVAS_HEIGHT. Include ALL
+gradients, shadow filter, and arrow marker.
+
+### Step 3: Write Section 1 (Message Flow)
+
+Draw agent nodes at your calculated positions. Then draw arrows. Then add
+labels at `(SOURCE_BOTTOM + TARGET_TOP) / 2`. Verify no label overlaps a box.
+
+### Step 4: Write Section 2 (Data Contracts)
+
+Draw divider line. Place 2×2 grid using your ROW1/ROW2 coordinates. Draw
+relationship connectors between model boxes.
+
+### Step 5: Write Section 3 (Class Architecture)
+
+Draw divider line. Place state model, parallelization note, base class, and
+child classes at calculated positions.
+
+### Step 6: Run Quality Checklist
 
 ---
 
@@ -210,6 +332,7 @@ For agents beyond these roles, cycle through: indigo, pink, cyan, lime.
 
 Before declaring the diagram complete, verify ALL items:
 
+**Content completeness:**
 - [ ] Every data type referenced in an arrow label has its own model box
 - [ ] Every agent that calls LLM has retry + empty response annotation
 - [ ] Every parallel execution path has failure isolation shown
@@ -222,11 +345,23 @@ Before declaring the diagram complete, verify ALL items:
 - [ ] No model appears in another model's fields without its own definition box
 - [ ] Section dividers present between all three sections
 - [ ] All arrows have labels; no unlabeled connections
+
+**Layout correctness (CRITICAL — most common failure point):**
+- [ ] viewBox width = 1400 (not wider, not narrower)
+- [ ] viewBox height matches calculated total (not guessed)
+- [ ] Every flow node gap ≥ 80px (measure: next_Y - prev_Y - prev_H ≥ 80)
+- [ ] Every arrow label Y = (source_bottom + target_top) / 2 (±5px)
+- [ ] No arrow label shares a Y coordinate with text inside any box
+- [ ] Section 2 has exactly 2 rows of 2 boxes (not 3 or 4 in a row)
+- [ ] Row gap in Section 2 ≥ 30px
+- [ ] Horizontal gap between side-by-side boxes ≥ 40px
+- [ ] No text smaller than 11px
+- [ ] Model fields use 14px font with 26px line-height
 - [ ] SVG is well-formed XML with proper viewBox
-- [ ] Minimum 80px vertical gap between flow nodes (no cramped labels)
-- [ ] Minimum 40px horizontal gap between side-by-side boxes
-- [ ] No text smaller than 11px; model fields at 14px with 26px line-height
-- [ ] Section 2 uses 2x2 grid layout (not 4 boxes in one row)
+
+**Scope compliance:**
+- [ ] Only `.svg` files were written (no `.py`, `.js`, `.ts` files touched)
+- [ ] No source code was modified to "match" the diagram
 
 ---
 

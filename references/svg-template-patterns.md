@@ -3,20 +3,138 @@
 Parameterized SVG building blocks for agent architecture diagrams. Substitute
 `{PLACEHOLDER}` values with actual names, colors, positions, and field lists.
 
-## Spacing & Readability Rules (MANDATORY)
+## CRITICAL: Scope Reminder
 
-These minimums prevent text overlap and mushed elements.
+This file supports SVG generation ONLY. Never use these patterns to modify
+Python, JavaScript, or any source code file. The output is always a `.svg`.
+
+---
+
+## Layout Algorithm (MANDATORY — follow this, not intuition)
+
+### Step 0: Constants
+
+```
+CANVAS_WIDTH  = 1400        # NEVER change this
+CENTER_X      = 700         # All centered elements anchor here
+LEFT_MARGIN   = 60          # Minimum left edge
+RIGHT_MARGIN  = 60          # Minimum right edge
+USABLE_WIDTH  = 1280        # CANVAS_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
+```
+
+### Step 1: Section 1 — Flow Node Positions
+
+Place each flow node from top to bottom. Use these EXACT gaps:
+
+```
+Y_HEADER      = 50          # Section title baseline
+Y_USER        = 120         # User node top-left Y
+USER_H        = 80
+GAP_1         = 80          # Between User bottom and Orchestrator top
+Y_ORCH        = Y_USER + USER_H + GAP_1    # = 280
+ORCH_H        = 100
+GAP_2         = 80          # Between Orchestrator bottom and Router top
+Y_ROUTER_TOP  = Y_ORCH + ORCH_H + GAP_2    # = 460
+ROUTER_H      = 120         # Diamond is taller than it looks
+Y_ROUTER_BOT  = Y_ROUTER_TOP + ROUTER_H    # = 580
+```
+
+Side agents (Planner, Drafter) are vertically centered on router:
+```
+ROUTER_CY     = Y_ROUTER_TOP + ROUTER_H/2
+SIDE_AGENT_Y  = ROUTER_CY - SIDE_H/2
+```
+
+Bottom agents (Researchers) go below:
+```
+GAP_3         = 100         # Router bottom to researcher stack top
+Y_RESEARCHERS = Y_ROUTER_BOT + GAP_3
+RESEARCHER_STACK_H = 160    # 3 stacked rects + text
+```
+
+### Step 2: Arrow Label Positions (FORMULA, not guessing)
+
+```
+LABEL_Y = floor((SOURCE_BOTTOM + TARGET_TOP) / 2)
+```
+
+Verification: `LABEL_Y - SOURCE_BOTTOM >= 15` AND `TARGET_TOP - LABEL_Y >= 15`.
+If either fails, increase the gap between the nodes.
+
+For horizontal arrows (Router ↔ Side agents), place labels:
+- Outgoing label: `Y = ARROW_Y - 10` (above the arrow line)
+- Return label: `Y = ARROW_Y + 20` (below the arrow line)
+- Never at `Y = ARROW_Y` (directly on the line)
+
+### Step 3: Section 2 — Data Contracts Grid
+
+```
+SECTION2_DIVIDER_Y = Y_RESEARCHERS + RESEARCHER_STACK_H + 60
+SECTION2_TITLE_Y   = SECTION2_DIVIDER_Y + 30
+
+# Grid: 2 rows × 2 columns
+GRID_GAP_H    = 40          # Horizontal gap between columns
+GRID_GAP_V    = 30          # Vertical gap between rows
+COL_WIDTH     = (USABLE_WIDTH - GRID_GAP_H) / 2    # ≈ 620px each
+COL1_X        = LEFT_MARGIN
+COL2_X        = LEFT_MARGIN + COL_WIDTH + GRID_GAP_H
+
+ROW1_Y        = SECTION2_TITLE_Y + 40
+
+# Calculate each box height: 36 (header) + 26 × field_count + 40 (footer)
+ROW1_H        = max(BOX1_HEIGHT, BOX2_HEIGHT)       # align row bottoms
+ROW2_Y        = ROW1_Y + ROW1_H + GRID_GAP_V
+ROW2_H        = max(BOX3_HEIGHT, BOX4_HEIGHT)
+```
+
+**ROW 1**: AgentState (left) + Task/primary model (right)
+**ROW 2**: Prompt Contracts (left) + Operational Safety (right)
+
+NEVER put 3+ boxes in one row. ALWAYS 2×2.
+
+### Step 4: Section 3 — Class Architecture
+
+```
+SECTION3_DIVIDER_Y = ROW2_Y + ROW2_H + 60
+SECTION3_TITLE_Y   = SECTION3_DIVIDER_Y + 30
+
+# Two-column layout: State+Notes on left, Classes on right
+LEFT_COL_X    = LEFT_MARGIN
+LEFT_COL_W    = 580
+RIGHT_COL_X   = LEFT_COL_X + LEFT_COL_W + 60
+RIGHT_COL_W   = USABLE_WIDTH - LEFT_COL_W - 60
+
+STATE_BOX_Y   = SECTION3_TITLE_Y + 40
+PARA_NOTE_Y   = STATE_BOX_Y + STATE_BOX_H + 40
+
+BASE_CLASS_Y  = SECTION3_TITLE_Y + 40
+INHERITANCE_BAR_Y = BASE_CLASS_Y + BASE_CLASS_H + 30
+CHILDREN_Y    = INHERITANCE_BAR_Y + 50
+
+# Distribute children evenly across right column
+CHILD_GAP     = 60          # Between child class boxes (not 30)
+```
+
+### Step 5: Canvas Height
+
+```
+CANVAS_HEIGHT = CHILDREN_Y + CHILD_CLASS_H + 60   # 60px bottom padding
+```
+
+---
+
+## Spacing & Readability Rules (MANDATORY)
 
 ### Vertical Spacing
 
 | Between | Minimum gap | Why |
 |---|---|---|
 | Flow nodes (agent → agent) | **80px** | Room for arrow + 2 label lines |
-| Node bottom → arrow label | **25px** | Label needs clearance from box edge |
-| Arrow label → next node top | **25px** | Label needs clearance from box edge |
+| Node bottom → arrow label | **15px** | Label needs clearance from box edge |
+| Arrow label → next node top | **15px** | Label needs clearance from box edge |
 | Multi-line labels | **22px** line-height | Prevents line merging at 13-14px font |
 | Section divider → section title | **30px** | Title needs breathing room |
-| Section title → first content | **35px** | Content needs separation from header |
+| Section title → first content | **40px** | Content needs separation from header |
 | Model box fields | **26px** line-height | Monospace 14px needs 26px spacing |
 | Model box footer separator → text | **18px** | Footer text needs padding |
 
@@ -26,41 +144,33 @@ These minimums prevent text overlap and mushed elements.
 |---|---|---|
 | Side-by-side boxes (same row) | **40px** | Shadows overlap at < 30px |
 | Relationship arrow + label | **70px** | Arrow (20px) + label (50px) needs room |
-| Box edge → inner text | **20px** padding | Text must not touch border |
-
-### Layout Strategy
-
-- **Canvas width**: 1400px (not 1300px — the extra 100px prevents right-edge cramming)
-- **Canvas height**: calculate as sum of sections + gaps, never guess
-- **Section 2 (Data Contracts)**: use **2 rows of 2 boxes** instead of 4 across
-  - Row 1: State model (left, ~380px) + primary data model (right, ~360px)
-  - Row 2: Prompt Contracts (left, ~520px) + Operational Safety (right, ~460px)
-  - Row gap: **30px** between rows
-- **Section 3 (Classes)**: child class boxes need **30px** minimum gap between them
-- **Arrow labels**: place at the **midpoint** between source and target, never overlapping either box
+| Box edge → inner text | **15px** padding | Text must not touch border |
 
 ### Text Size Reference
 
-| Element | Font size | Family | Weight |
-|---|---|---|---|
-| Section titles | 22px | system-ui | 700 |
-| Agent node titles | 22px | system-ui | 700 |
-| Agent subtitles | 14px | system-ui | 400 |
-| Model box header | 16px | monospace | 700 |
-| Model box fields | 14px | monospace | 400 |
-| Model box footer | 11px | system-ui | 600 |
-| Arrow labels | 13px | system-ui | 600 |
-| Error annotations | 11px | system-ui | 600, fill #dc2626 |
-| Inline comments | 12px | monospace | 400, fill #6b7280 |
-| Tool badges | 13px | system-ui | 700 |
+| Element | Font size | Line-height | Family | Weight |
+|---|---|---|---|---|
+| Section titles | 22px | n/a | system-ui | 700 |
+| Agent node titles | 22px | n/a | system-ui | 700 |
+| Agent subtitles | 15px | 22px | system-ui | 400 |
+| Model box header | 16px | n/a | monospace | 700 |
+| Model box fields | 14px | **26px** | monospace | 400 |
+| Model box footer | 12px | n/a | system-ui | 600 |
+| Arrow labels | 14px | 20px | system-ui | 600 |
+| Error annotations | 12px | 18px | system-ui | 600, fill #dc2626 |
+| Inline comments | 12px | 18px | monospace | 400, fill #6b7280 |
+| Tool badges | 13px | n/a | system-ui | 700 |
 
-### Anti-Patterns
+### Anti-Patterns (if you do any of these, the output is WRONG)
 
-- **NEVER** place 4+ model boxes in a single row at 1300-1400px width
-- **NEVER** use < 20px gap between side-by-side boxes
-- **NEVER** use < 22px line-height for multi-line text at 13-14px font size
-- **NEVER** place arrow labels at the same Y as box text inside the box
-- **NEVER** use font-size 10px for anything — minimum readable size is 11px
+- **NEVER** place 3+ model boxes in a single row at 1400px width
+- **NEVER** use < 40px gap between side-by-side boxes
+- **NEVER** use < 26px line-height for model fields at 14px font size
+- **NEVER** place arrow labels at the same Y as text inside any box
+- **NEVER** use font-size smaller than 11px for anything
+- **NEVER** guess canvas height — always calculate from component positions
+- **NEVER** modify `.py` or `.js` files — this skill outputs only `.svg`
+- **NEVER** remove diagram elements because they don't exist in current code
 
 ## Defs Block (Always Include)
 
@@ -161,24 +271,32 @@ Diamond geometry: TOP = CY - 60, BOT = CY + 60, LEFT = CX - 120, RIGHT = CX + 12
 
 ## Stacked Boxes (Parallel Agents)
 
-Three offset rectangles to convey N parallel instances:
+Three offset rectangles to convey N parallel instances. The offsets MUST be
+large enough (20px each axis) so the stacking is visually obvious.
 
 ```xml
 <g filter="url(#shadow)">
-  <rect x="{X+30}" y="{Y}"    width="{W}" height="{H}" rx="20"
+  <!-- Back rect (highest, rightmost) -->
+  <rect x="{X+40}" y="{Y}"    width="{W}" height="{H}" rx="20"
         fill="url(#{ROLE}Fill)" stroke="#475569" stroke-width="1.8"/>
-  <rect x="{X+15}" y="{Y+20}" width="{W}" height="{H}" rx="20"
+  <!-- Middle rect -->
+  <rect x="{X+20}" y="{Y+20}" width="{W}" height="{H}" rx="20"
         fill="url(#{ROLE}Fill)" stroke="#475569" stroke-width="1.8"/>
+  <!-- Front rect (lowest, leftmost — text goes on this one) -->
   <rect x="{X}"    y="{Y+40}" width="{W}" height="{H}" rx="20"
         fill="url(#{ROLE}Fill)" stroke="#475569" stroke-width="1.8"/>
-  <text x="{CX}" y="{TY}" text-anchor="middle"
+  <!-- Text anchored to FRONT rect center -->
+  <text x="{X + W/2}" y="{Y+40 + H*0.4}" text-anchor="middle"
         font-family="system-ui, -apple-system, sans-serif"
         font-size="22" font-weight="700" fill="#1f2937">{AGENT_NAME}s</text>
-  <text x="{CX}" y="{SY}" text-anchor="middle"
+  <text x="{X + W/2}" y="{Y+40 + H*0.4 + 28}" text-anchor="middle"
         font-family="system-ui, -apple-system, sans-serif"
         font-size="15" fill="#475569">Spawns exactly len({COLLECTION}) instances</text>
 </g>
 ```
+
+**Stack total height** = H + 40 (the Y offset of the front rect).
+Use this when calculating gaps to the next element below.
 
 ---
 
@@ -322,13 +440,17 @@ White rectangle with colored header band, monospace fields, and annotation foote
 
 ## Section Divider
 
+Use `x2 = CANVAS_WIDTH - LEFT_MARGIN` and `text x = CENTER_X`:
+
 ```xml
-<line x1="50" y1="{Y}" x2="1250" y2="{Y}"
+<line x1="60" y1="{Y}" x2="1340" y2="{Y}"
       stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="8 6"/>
-<text x="650" y="{Y-10}" text-anchor="middle"
+<text x="700" y="{Y+30}" text-anchor="middle"
       font-family="system-ui, -apple-system, sans-serif"
-      font-size="20" font-weight="700" fill="#64748b">{SECTION_TITLE}</text>
+      font-size="22" font-weight="700" fill="#64748b">{SECTION_TITLE}</text>
 ```
+
+Title goes 30px BELOW the divider line (not above or on it).
 
 ---
 

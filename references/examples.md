@@ -187,3 +187,99 @@ Use this rubric to evaluate any agent architecture diagram:
 
 5. **Three sections keep complexity manageable** — flow, data, class
    architecture each have their own visual language and don't interfere.
+
+---
+
+## Common AI Mistakes (documented from real failures)
+
+These failures were observed when AI models attempted to use this skill.
+Each mistake has a concrete fix built into the skill constraints.
+
+### Mistake 1: Modifying Source Code Instead of Only the SVG
+
+**What happened**: The AI read the skill, saw that the diagram should show
+`MAX_ITERATIONS = 10` and `retry 3× exponential backoff`, then rewrote
+`llm.py` and `driver.py` to add those features — even though the user only
+asked to improve the SVG diagram.
+
+**Why it's wrong**: This skill produces ONLY `.svg` files. The diagram is a
+design spec that DRIVES future code generation. Modifying code to match the
+diagram reverses the intended workflow.
+
+**Prevention**: SKILL.md now has Hard Constraint 1: "Before calling
+Write/StrReplace, verify the file path ends in `.svg`. If it does not, STOP."
+
+### Mistake 2: Removing Diagram Elements That Don't Exist in Code Yet
+
+**What happened**: The AI read `state.py`, saw no `ResearchResult` or
+`ReportSection` class, and removed those model boxes from the SVG. It replaced
+typed models with plain `str` because "that's what the code has."
+
+**Why it's wrong**: The diagram represents the INTENDED architecture, not the
+current code state. If the user's design includes `ResearchResult` as a typed
+model, it stays in the diagram even if `state.py` only has `result: str`.
+
+**Prevention**: SKILL.md now has Hard Constraint 2: "The diagram drives the
+code, not the other way around."
+
+### Mistake 3: Canvas Size Oscillation
+
+**What happened**: Across 4 iterations, the canvas went 1300→1650→2000→1400px
+wide. Each attempt either cramped content or made it too sparse because the AI
+was guessing instead of calculating.
+
+**Why it's wrong**: Canvas size should be deterministic — calculated from
+component count and spacing rules, not eyeballed.
+
+**Prevention**: `svg-template-patterns.md` now has exact formulas:
+`CANVAS_WIDTH = 1400` (constant) and `CANVAS_HEIGHT` is calculated by summing
+all section heights plus gaps.
+
+### Mistake 4: Arrow Labels Overlapping Box Interiors
+
+**What happened**: Labels like "AgentState (tasks added)" were placed at the
+same Y coordinate as text inside agent boxes, making both unreadable.
+
+**Why it's wrong**: Arrow labels must sit in the empty space BETWEEN nodes,
+never at the same Y as any box's internal text.
+
+**Prevention**: `svg-template-patterns.md` now requires:
+`LABEL_Y = floor((SOURCE_BOTTOM + TARGET_TOP) / 2)` with a minimum 15px
+clearance from either box edge.
+
+### Mistake 5: Putting 4 Model Boxes in One Row
+
+**What happened**: Section 2 crammed AgentState, Task, Prompt Contracts, and
+Operational Safety into a single row. At 1400px width, each box got ~310px —
+not enough for monospace code strings.
+
+**Why it's wrong**: Monospace text for field definitions like
+`Planner → JSON list[{"id", "description"}]` needs ~520px minimum width.
+
+**Prevention**: Layout rules now mandate a 2×2 grid for Section 2, with each
+box getting approximately 620px width.
+
+### Mistake 6: Excessive Reasoning Loops (15+ Thinking Paragraphs)
+
+**What happened**: The AI output 15-20 "I'm now focusing on...",
+"I'm now determining...", "I'm now carefully..." paragraphs before each SVG
+write action, burning tokens without making progress.
+
+**Why it's wrong**: The skill provides explicit formulas and step-by-step
+construction. There's nothing to "determine" — just compute coordinates and
+write XML.
+
+**Prevention**: SKILL.md now has Hard Constraint 3: "No thinking loops. One
+planning paragraph maximum, then act." The Phase C construction process gives
+explicit steps to follow.
+
+### Mistake 7: Researcher Stack Rects Overlapping
+
+**What happened**: The 3 stacked rectangles used 15px X/Y offsets, but the
+text was 22px — so the stack visual was barely visible and text overflowed.
+
+**Why it's wrong**: Stack offsets need to be visually distinct. 15px offset
+with 22px font means the "back" rect is almost hidden behind the "front" one.
+
+**Prevention**: Template now uses 20px Y offsets and 20px X offsets (40px
+total spread), making the parallel-instance visual clear.
