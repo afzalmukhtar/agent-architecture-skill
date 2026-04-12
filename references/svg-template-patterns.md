@@ -3,6 +3,65 @@
 Parameterized SVG building blocks for agent architecture diagrams. Substitute
 `{PLACEHOLDER}` values with actual names, colors, positions, and field lists.
 
+## Spacing & Readability Rules (MANDATORY)
+
+These minimums prevent text overlap and mushed elements.
+
+### Vertical Spacing
+
+| Between | Minimum gap | Why |
+|---|---|---|
+| Flow nodes (agent → agent) | **80px** | Room for arrow + 2 label lines |
+| Node bottom → arrow label | **25px** | Label needs clearance from box edge |
+| Arrow label → next node top | **25px** | Label needs clearance from box edge |
+| Multi-line labels | **22px** line-height | Prevents line merging at 13-14px font |
+| Section divider → section title | **30px** | Title needs breathing room |
+| Section title → first content | **35px** | Content needs separation from header |
+| Model box fields | **26px** line-height | Monospace 14px needs 26px spacing |
+| Model box footer separator → text | **18px** | Footer text needs padding |
+
+### Horizontal Spacing
+
+| Between | Minimum gap | Why |
+|---|---|---|
+| Side-by-side boxes (same row) | **40px** | Shadows overlap at < 30px |
+| Relationship arrow + label | **70px** | Arrow (20px) + label (50px) needs room |
+| Box edge → inner text | **20px** padding | Text must not touch border |
+
+### Layout Strategy
+
+- **Canvas width**: 1400px (not 1300px — the extra 100px prevents right-edge cramming)
+- **Canvas height**: calculate as sum of sections + gaps, never guess
+- **Section 2 (Data Contracts)**: use **2 rows of 2 boxes** instead of 4 across
+  - Row 1: State model (left, ~380px) + primary data model (right, ~360px)
+  - Row 2: Prompt Contracts (left, ~520px) + Operational Safety (right, ~460px)
+  - Row gap: **30px** between rows
+- **Section 3 (Classes)**: child class boxes need **30px** minimum gap between them
+- **Arrow labels**: place at the **midpoint** between source and target, never overlapping either box
+
+### Text Size Reference
+
+| Element | Font size | Family | Weight |
+|---|---|---|---|
+| Section titles | 22px | system-ui | 700 |
+| Agent node titles | 22px | system-ui | 700 |
+| Agent subtitles | 14px | system-ui | 400 |
+| Model box header | 16px | monospace | 700 |
+| Model box fields | 14px | monospace | 400 |
+| Model box footer | 11px | system-ui | 600 |
+| Arrow labels | 13px | system-ui | 600 |
+| Error annotations | 11px | system-ui | 600, fill #dc2626 |
+| Inline comments | 12px | monospace | 400, fill #6b7280 |
+| Tool badges | 13px | system-ui | 700 |
+
+### Anti-Patterns
+
+- **NEVER** place 4+ model boxes in a single row at 1300-1400px width
+- **NEVER** use < 20px gap between side-by-side boxes
+- **NEVER** use < 22px line-height for multi-line text at 13-14px font size
+- **NEVER** place arrow labels at the same Y as box text inside the box
+- **NEVER** use font-size 10px for anything — minimum readable size is 11px
+
 ## Defs Block (Always Include)
 
 ```xml
