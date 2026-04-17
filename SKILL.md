@@ -68,6 +68,62 @@ When this rule holds, Cursor has zero decisions to make about data shapes.
 
 ---
 
+## Diagram Readability Principles (apply on every diagram)
+
+Full details and rationale in
+[references/diagram-readability-guide.md](references/diagram-readability-guide.md).
+The principles below are non-negotiable and must be respected during
+construction and review.
+
+### Flow direction convention
+
+- **Cross-group transitions (stage boundaries) flow along the primary axis.**
+  For vertical diagrams: cross-group = top→bottom straight lines.
+  For horizontal diagrams: cross-group = left→right straight lines.
+- **Intra-group transitions (expansions inside a stage) flow on the
+  perpendicular axis.** Helpers like `driver → stream`, `classifier ↔ LLM`,
+  or `alert_manager → JSON` branch sideways and stay inside their owning band.
+- Lock all primary-pipeline boxes to a single `SPINE_X` (or `SPINE_Y`) so every
+  cross-group arrow is a straight line with `x1 == x2` (or `y1 == y2`).
+
+### Arrow integrity
+
+- Every arrow must start inside the source box bounds and end inside the
+  target box bounds. No arrow may originate from or point into empty space.
+- Primary flow arrows are straight. Use a single 90° bend for secondary
+  arrows only. Never cross a primary arrow.
+- Distinguish line types by stroke width + dash pattern, not just colour:
+  primary (2.6–3.0px solid) > secondary (2.0–2.4px solid) > relationship
+  (1.6px dashed).
+
+### Labels and bands
+
+- Arrow labels live in pill-shaped rects, not as bare floating text.
+- Section-band labels use rounded-rect badges beside the spine. **Never** use
+  a horizontal line + text as a band label — it will cross primary arrows
+  and visually sever the pipeline.
+- Use circled stage numbers (1, 2, 3, ...) on the spine for pipelines with
+  more than two stages.
+- Properties of a component (e.g. `Semaphore(5)`, `retries=3`) render as
+  inline chips inside the parent box, not as separate diagram elements.
+
+### Density management
+
+- If a diagram feels crowded, **grow the canvas** or **split regions**. Do
+  not shrink fonts below 11px.
+- Minimum gap between primary pipeline boxes along the spine: **110px**.
+- Minimum gap between spine and reference-panel gutter: **80px**.
+- Inner text padding: **18px** from any box border.
+
+### Content discipline
+
+- Prefer concrete constants and type names over generic verbs. Pull values
+  directly from source code (`MAX_RETRIES = 3`, `model = "azure/gpt-4.1"`,
+  `asyncio.Queue(maxsize=100)`, `response_format = LLMClassificationResponse`).
+- Every text element must survive the questions "so what?" and "says who?".
+
+---
+
 ## Phase A: Structured Interrogation
 
 Use AskQuestion for blocks 1-2. Use conversational follow-ups for blocks 3-6
@@ -288,43 +344,148 @@ START_X = CENTER_X - TOTAL_CHILDREN_WIDTH / 2
 
 ---
 
-## Phase C: SVG Construction Process (follow this order exactly)
+## Phase C: Phased Construction (Phase 0 → Phase 4)
 
-Do NOT generate the entire SVG in one shot. Build section by section.
+**The single most important rule of this skill**: do NOT write the SVG
+end-to-end and render once at the end. That approach fails every time because
+layout, content, and connection bugs stack invisibly until the final render.
 
-### Step 1: Compute layout coordinates on paper
+Instead, build the SVG in five strict phases. Each phase has an entry gate,
+an exit gate, and a mandatory render checkpoint between it and the next.
+Never skip a render gate to save time — the time saved is paid back 10×
+in debugging.
 
-Before writing ANY SVG XML, calculate ALL Y positions using the formulas in
-the Layout section above. Write them down as a coordinate table:
+Detailed per-phase mechanics (commands, good/bad examples, common failures)
+live in [references/phased-construction.md](references/phased-construction.md).
+The main skill defines **what** each phase does; the reference doc defines
+**how** to execute it.
 
-```
-USER_Y = 120, ORCH_Y = 280, ROUTER_CY = 460, ...
-SECTION2_Y = 920, ROW1_Y = 990, ROW2_Y = ...
-SECTION3_Y = ..., BASE_Y = ..., CHILDREN_Y = ...
-CANVAS_HEIGHT = sum of everything
-```
+### The render gate (automated)
 
-### Step 2: Write the SVG header + defs
+A user-level hook at `~/.cursor/hooks.json` watches every `.svg` write. After
+each edit it automatically:
 
-viewBox must use your calculated CANVAS_WIDTH and CANVAS_HEIGHT. Include ALL
-gradients, shadow filter, and arrow marker.
+1. Parses XML with `xml.etree.ElementTree`.
+2. Scans for corrupted bytes (`0x00–0x1F` control chars, `0x80–0x9F`
+   Windows-1252 garbage).
+3. Renders the SVG to a sibling PNG via `rsvg-convert`.
+4. Writes a JSON report to `<svg>.render-report.json` and returns a summary
+   to the agent as `additional_context`.
 
-### Step 3: Write Section 1 (Message Flow)
+You must **read the report after every write** and only advance to the next
+phase when the report says `status: "OK"` and the rendered PNG visually
+matches the phase's exit criteria.
 
-Draw agent nodes at your calculated positions. Then draw arrows. Then add
-labels at `(SOURCE_BOTTOM + TARGET_TOP) / 2`. Verify no label overlaps a box.
+The hook is non-blocking: it reports failures, it doesn't refuse the write.
+The skill is responsible for honoring the report.
 
-### Step 4: Write Section 2 (Data Contracts)
+### Phase 0 — Plan (no XML yet)
 
-Draw divider line. Place 2×2 grid using your ROW1/ROW2 coordinates. Draw
-relationship connectors between model boxes.
+**Goal**: produce a complete component inventory and coordinate plan
+**before** any XML is written.
 
-### Step 5: Write Section 3 (Class Architecture)
+**Entry gate**: Phase A (interrogation) and Phase B (refinement) complete.
 
-Draw divider line. Place state model, parallelization note, base class, and
-child classes at calculated positions.
+**Do**:
+1. List every component by name and band: primary-pipeline, tool/helper,
+   reference panel, legend.
+2. Decide the primary axis (vertical or horizontal) and the `SPINE_X`
+   (or `SPINE_Y`) coordinate.
+3. Draft a coordinate table: each component gets `(x, y, w, h)` and its band.
+4. Estimate `viewBox` width and height from the table.
 
-### Step 6: Run Quality Checklist
+**Exit gate**: you can answer, for every component: "where does it go and
+how big is it?" without running any code.
+
+No render yet — Phase 0 produces a text plan, not SVG.
+
+### Phase 1 — Scaffold (empty boxes with titles)
+
+**Goal**: prove the layout plan is visually plausible before investing in
+content.
+
+**Entry gate**: Phase 0 coordinate table ready.
+
+**Do**:
+1. Write the SVG header, `viewBox`, and `<defs>` (gradients, shadow, arrow
+   markers).
+2. For each component in the plan, draw a **plain rounded rect with a single
+   centered title text**. No fields, no chips, no gradients, no borders
+   beyond a single stroke, no arrows.
+3. Save the file.
+
+**Render gate** (mandatory):
+- Read the hook's render report.
+- Open the PNG and verify: no overlaps, gutters clear, spine aligned,
+  `viewBox` fits content, no component clipped at an edge.
+
+**Exit gate**: layout looks right at skeleton level. If anything is wrong,
+**fix the plan and the skeleton** before moving on — never proceed with a
+broken layout.
+
+### Phase 2 — Fill components (one at a time)
+
+**Goal**: add full content to each component without letting errors compound.
+
+**Entry gate**: Phase 1 skeleton renders cleanly.
+
+**Do**, per component (never in parallel):
+1. Pick one component from the plan.
+2. Add its full content: fields, chips, typography, colours, gradients,
+   borders, inline annotations.
+3. Save the file.
+4. **Render gate**: read the report, open the PNG, verify that component
+   alone for: text overflow, chip alignment, border/colour correctness,
+   no encroachment into neighbouring components.
+5. Only when the component is clean, move to the next.
+
+**Exit gate**: every component has its full content and passes its
+individual render gate.
+
+**Common trap**: filling two components in one edit. Don't. If the render
+regresses, you lose the ability to attribute which component caused it.
+
+### Phase 3 — Connect flows
+
+**Goal**: draw arrows between finalized box positions. Because Phase 2 has
+frozen every box's `(x, y, w, h)`, every arrow can guarantee its endpoints
+are inside the source and target bounds.
+
+**Entry gate**: every component filled and individually rendered clean.
+
+**Do**:
+1. Draw primary (cross-group) arrows first — straight lines along the spine.
+2. Draw secondary (intra-group) arrows — perpendicular to the spine, kept
+   inside their band.
+3. Add pill-style labels on each arrow.
+4. Add failure/sentinel annotations where the interrogation specified them.
+5. Save the file.
+
+**Render gate**: verify arrow integrity — every `x1/y1` inside the source
+box, every `x2/y2` inside the target box, no primary arrow crossed by
+another line, no label overlapping a box border.
+
+**Exit gate**: all arrows in place, render clean.
+
+### Phase 4 — Polish
+
+**Goal**: final visual pass for structure labels, legend, stage numbers,
+typography micro-adjustments.
+
+**Entry gate**: Phase 3 arrows in place and clean.
+
+**Do**:
+1. Add section-band badges (rounded rects, not horizontal lines).
+2. Add circled stage numbers on the spine if there are more than two stages.
+3. Add the legend panel if the diagram uses multiple arrow line types.
+4. Adjust pill positions, letter-spacing, any final typography tweaks.
+5. Save the file.
+
+**Render gate**: final full-diagram render. Visually confirm nothing
+introduced in Phase 4 broke anything from Phase 3 (badges crossing arrows,
+legend overlapping a component, etc.).
+
+**Exit gate**: Quality Checklist below passes in full.
 
 ---
 
@@ -345,9 +506,13 @@ Before declaring the diagram complete, verify ALL items:
 - [ ] No model appears in another model's fields without its own definition box
 - [ ] Section dividers present between all three sections
 - [ ] All arrows have labels; no unlabeled connections
+- [ ] Every factual claim (retries, timeouts, models, queue sizes) is backed
+      by a concrete constant or type from source, not a generic verb
 
 **Layout correctness (CRITICAL — most common failure point):**
-- [ ] viewBox width = 1400 (not wider, not narrower)
+- [ ] viewBox width = 1400 (not wider, not narrower) — unless the diagram
+      uses a bespoke vertical/pipeline layout, in which case `viewBox`
+      matches actual content extent
 - [ ] viewBox height matches calculated total (not guessed)
 - [ ] Every flow node gap ≥ 80px (measure: next_Y - prev_Y - prev_H ≥ 80)
 - [ ] Every arrow label Y = (source_bottom + target_top) / 2 (±5px)
@@ -358,6 +523,27 @@ Before declaring the diagram complete, verify ALL items:
 - [ ] No text smaller than 11px
 - [ ] Model fields use 14px font with 26px line-height
 - [ ] SVG is well-formed XML with proper viewBox
+
+**Flow convention (pipeline / multi-stage diagrams):**
+- [ ] Every cross-group transition is a straight line along the primary axis
+      (vertical for vertical diagrams, horizontal for landscape diagrams)
+- [ ] Every intra-group transition is on the perpendicular axis and stays
+      inside its owning band
+- [ ] All primary-pipeline boxes share a single spine coordinate
+- [ ] Every arrow starts inside the source box bounds and ends inside the
+      target box bounds
+- [ ] Primary arrows are measurably thicker than secondary arrows
+- [ ] Dashed lines are used only for references/relationships, never for
+      primary flow
+- [ ] Section band labels use rect badges, not horizontal lines that cross
+      arrows
+- [ ] Each colour maps to exactly one role (no red for both failure and
+      classification)
+
+**Render validation:**
+- [ ] SVG rendered to PNG and visually inspected at least once
+- [ ] No corrupted bytes / control characters in source (`xxd` clean)
+- [ ] No arrow visibly broken, no label overlapping a box border in the PNG
 
 **Scope compliance:**
 - [ ] Only `.svg` files were written (no `.py`, `.js`, `.ts` files touched)
@@ -379,24 +565,52 @@ This maps to interview Phase 1 timing:
 
 ---
 
-## Documentation Lookup: Context7
-
-When the interrogation reveals library-specific details (e.g. LiteLLM structured
-output, LangGraph state schemas, CrewAI tool signatures), use the Context7 MCP
-tools to verify current API shapes before embedding them in the Data Contracts
-section of the diagram.
-
-| Situation | Action |
-|---|---|
-| User specifies an LLM SDK for the call wrapper | Context7 → look up current response_format / tool_call API |
-| Data model fields depend on a library's return type | Context7 → confirm field names and types from the source |
-| Prompt contract references provider-specific features | Context7 → verify the feature exists and its current syntax |
-
-**Workflow**: call `resolve-library-id` first, then `query-docs` with a specific
-question. This ensures the SVG spec reflects real, current APIs — not stale assumptions.
-
 ## Additional Resources
 
+- Per-phase construction mechanics (commands, good/bad examples, common
+  failures, render-gate cookbook):
+  [references/phased-construction.md](references/phased-construction.md)
 - SVG building blocks: [references/svg-template-patterns.md](references/svg-template-patterns.md)
+- Generalized readability guidelines (flow conventions, arrow integrity,
+  density, typography, anti-patterns, pre-ship checklist):
+  [references/diagram-readability-guide.md](references/diagram-readability-guide.md)
 - Full question bank with SVG mappings: [references/interrogation-checklist.md](references/interrogation-checklist.md)
 - Annotated example walkthrough: [references/examples.md](references/examples.md)
+
+---
+
+## Automated render gate (companion hook)
+
+The skill is accompanied by a user-level hook at `~/.cursor/hooks.json`
+that runs after every `.svg` write:
+
+- Hook definition: `~/.cursor/hooks.json` (event: `afterFileEdit`, matcher:
+  `Write`)
+- Script: `~/.cursor/hooks/svg-render-gate/validate.py`
+- Output: JSON report at `<svg-path>.render-report.json` plus a sibling
+  `<svg-path>.png` rendered preview
+- Behavior: **non-blocking**. The hook reports problems; the skill must
+  read the report and honor it.
+
+The hook replaces every manual render step in the phases above. If the hook
+is missing (e.g. on a machine without this user setup), the skill falls back
+to running the same commands manually — see
+[references/phased-construction.md](references/phased-construction.md)
+§ Manual fallback.
+
+### Gitignore recommendation
+
+The hook produces two sibling files next to every `.svg` it validates:
+
+```
+<name>.svg
+<name>.svg.png                  # rendered preview
+<name>.svg.render-report.json   # validation report
+```
+
+Both are regenerated on every SVG save. Add to the project's `.gitignore`:
+
+```
+*.svg.png
+*.svg.render-report.json
+```

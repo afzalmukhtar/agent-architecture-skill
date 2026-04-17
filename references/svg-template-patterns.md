@@ -171,6 +171,18 @@ CANVAS_HEIGHT = CHILDREN_Y + CHILD_CLASS_H + 60   # 60px bottom padding
 - **NEVER** guess canvas height — always calculate from component positions
 - **NEVER** modify `.py` or `.js` files — this skill outputs only `.svg`
 - **NEVER** remove diagram elements because they don't exist in current code
+- **NEVER** start or end an arrow outside the bounding box of its
+  source/target — see [diagram-readability-guide.md §3.1](diagram-readability-guide.md)
+- **NEVER** use a horizontal line + text as a section-band label; use a
+  rounded rect badge instead — horizontal lines cross primary arrows
+- **NEVER** reuse a colour for two different roles (e.g. red for both
+  "failure" and "classification = CRITICAL")
+- **NEVER** skip the render-and-inspect loop — many layout bugs are only
+  visible in the rendered PNG, not in the source
+
+For the full generalized readability ruleset (flow conventions, density,
+content discipline, iteration loop, pre-ship checklist) see
+[diagram-readability-guide.md](diagram-readability-guide.md).
 
 ## Defs Block (Always Include)
 
