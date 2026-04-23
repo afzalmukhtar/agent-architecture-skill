@@ -379,6 +379,22 @@ This maps to interview Phase 1 timing:
 
 ---
 
+## Documentation Lookup: Context7
+
+When the interrogation reveals library-specific details (e.g. LiteLLM structured
+output, LangGraph state schemas, CrewAI tool signatures), use the Context7 MCP
+tools to verify current API shapes before embedding them in the Data Contracts
+section of the diagram.
+
+| Situation | Action |
+|---|---|
+| User specifies an LLM SDK for the call wrapper | Context7 → look up current response_format / tool_call API |
+| Data model fields depend on a library's return type | Context7 → confirm field names and types from the source |
+| Prompt contract references provider-specific features | Context7 → verify the feature exists and its current syntax |
+
+**Workflow**: call `resolve-library-id` first, then `query-docs` with a specific
+question. This ensures the SVG spec reflects real, current APIs — not stale assumptions.
+
 ## Additional Resources
 
 - SVG building blocks: [references/svg-template-patterns.md](references/svg-template-patterns.md)
