@@ -193,11 +193,16 @@ For agents beyond these roles, cycle through: indigo, pink, cyan, lime.
 
 ### Layout
 
-- Canvas width: 1300px (fixed)
-- Canvas height: calculated based on content (start at 800, add ~300 per section)
-- Section dividers: dashed line at full width with centered section title above
-- Model boxes: 250-350px wide, height = 32px header + 22px per field + 40px footer
-- Agent nodes: 280-300px wide, 80-120px tall
+- Canvas width: **1400px** (not 1300 — prevents right-edge cramming)
+- Canvas height: calculated based on content (start at 800, add ~350 per section)
+- Vertical gap between flow nodes: **minimum 80px** (room for arrow + 2 label lines)
+- Horizontal gap between side-by-side boxes: **minimum 40px**
+- Section dividers: dashed line at full width, title 30px below line, content 35px below title
+- Section 2: **2 rows of 2 boxes** (never 4 across — text overflows at that density)
+- Model boxes: 360-520px wide, height = 36px header + 26px per field + 40px footer
+- Agent nodes: 280-300px wide, 80-130px tall
+- Multi-line text: **26px line-height** for 14px font, **22px** for 13px font
+- See [references/svg-template-patterns.md](references/svg-template-patterns.md) for full spacing rules
 
 ---
 
@@ -218,6 +223,10 @@ Before declaring the diagram complete, verify ALL items:
 - [ ] Section dividers present between all three sections
 - [ ] All arrows have labels; no unlabeled connections
 - [ ] SVG is well-formed XML with proper viewBox
+- [ ] Minimum 80px vertical gap between flow nodes (no cramped labels)
+- [ ] Minimum 40px horizontal gap between side-by-side boxes
+- [ ] No text smaller than 11px; model fields at 14px with 26px line-height
+- [ ] Section 2 uses 2x2 grid layout (not 4 boxes in one row)
 
 ---
 
