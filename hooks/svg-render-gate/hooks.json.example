@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "./hooks/svg-render-gate/validate.py",
+        "matcher": "Write",
+        "timeout": 15
+      }
+    ]
+  }
+}
