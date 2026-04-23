@@ -3,6 +3,11 @@
 Complete question bank for the hybrid interrogation protocol. Each question
 maps to a specific SVG element so nothing is left unspecified.
 
+> **SCOPE REMINDER**: This interrogation gathers information for the SVG
+> diagram ONLY. Do NOT use answers to modify source code. Do NOT read source
+> files to "correct" the user's design answers. The user's answers define the
+> intended architecture — the diagram captures that intent as-is.
+
 ## Block 1 — System Overview
 
 Use AskQuestion tool for these.
@@ -151,3 +156,14 @@ After all 6 blocks, run these checks BEFORE generating SVG:
 | V.6 | Is there a resilience annotation? (which agent always runs) | Ask: "Does any agent run even if upstream fails?" |
 
 Only proceed to SVG generation when ALL verifications pass.
+
+### Pre-Generation Scope Check
+
+Before writing ANY file, confirm:
+
+- [ ] The ONLY file I will create/modify ends in `.svg`
+- [ ] I will NOT read source files to "validate" the user's design answers
+- [ ] I will NOT modify any `.py`, `.js`, `.ts`, or other code files
+- [ ] I will use the Layout Algorithm formulas from `svg-template-patterns.md`
+      to calculate ALL positions before writing SVG XML
+- [ ] I will follow Phase C (construction steps) from SKILL.md in order
